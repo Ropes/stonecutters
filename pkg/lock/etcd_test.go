@@ -14,9 +14,14 @@ var (
 	client *clientv3.Client
 	e      *embed.Etcd
 	err    error
+
+	key string
+	val string
 )
 
 func init() {
+	key = "Denali"
+	val = "wyeast"
 	cfg := embed.NewConfig()
 	cfg.Dir = "default.etcd"
 	cfg.ForceNewCluster = true
@@ -49,18 +54,18 @@ func init() {
 
 func TestEtcd(t *testing.T) {
 	t.Run("etcd tests", func(t *testing.T) {
-		t.Run("deleteKeys", deleteAll)
+		t.Run("deleteKeys", deleteKey)
 		t.Run("txnStatic", txnStaticKey)
 	})
 	//client.Close()
 	//e.Close()
 }
 
-func deleteAll(t *testing.T) {
+func deleteKey(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dresp, err := client.Delete(ctx, "key", clientv3.WithPrefix())
+	dresp, err := client.Delete(ctx, key)
 	if err != nil {
 		t.Errorf("error deleting all keys: %v", err)
 	}
@@ -68,11 +73,18 @@ func deleteAll(t *testing.T) {
 }
 
 func txnStaticKey(t *testing.T) {
-	key := "Denali"
-	val := "wyeast"
 
 	ctx, cancel := context.WithCancel(context.Background())
 	kvc := clientv3.NewKV(client)
+
+	// Get the key; test its value
+	got, err := client.Get(ctx, key)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(got.Kvs) > 0 {
+		t.Errorf("data already logged from last run %s: %s", key, string(got.Kvs[0].Value))
+	}
 
 	// Create txn to write key if it does not exist
 	resp, err := kvc.Txn(ctx).
@@ -83,10 +95,11 @@ func txnStaticKey(t *testing.T) {
 	if err != nil {
 		t.Errorf("error executing txn: %v", err)
 	}
-	t.Logf("write txn resp: %#v", resp)
+	resp_range := resp.Responses[0].Response
+	t.Logf("write txn resp: %#v", resp_range)
 
 	// Get the key; test its value
-	got, err := client.Get(ctx, key)
+	got, err = client.Get(ctx, key)
 	if err != nil {
 		t.Error(err)
 	}

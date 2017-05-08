@@ -18,4 +18,25 @@ foo-3le9 -> foo-MtLogan
 foo-wedc -> foo-MtRainier
 ```
 
+### etcd Transaction to lock an ID
+1. Create a Lease `leaseid` for this process
+ * Create Goroutine tied to Context to keep-alive the `leaseid` every 30s
+
+2. if key does **not** exist 
+3. PUT the key:value{ID: Hostname} pair, attached to `leaseid`. 
+
+4. If no keys available return error
+
+## API
+
+```go
+ctx, cancl := context.WithCancel()
+defer cancl()
+IDs := []string{"coffee", "tea", "bikes"}
+st := Stonecutters(etcdClient, ctx, IDs)
+
+id := st.Get(ctx)
+//        |->Facilitates holding the lease
+
+```
 
