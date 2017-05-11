@@ -73,8 +73,8 @@ func deleteKey(t *testing.T) {
 }
 
 func txnStaticKey(t *testing.T) {
-
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	kvc := clientv3.NewKV(client)
 
 	// Get the key; test its value
@@ -86,17 +86,19 @@ func txnStaticKey(t *testing.T) {
 		t.Errorf("data already logged from last run %s: %s", key, string(got.Kvs[0].Value))
 	}
 
-	// Create txn to write key if it does not exist
-	resp, err := kvc.Txn(ctx).
-		If(clientv3.Compare(clientv3.CreateRevision(key), ">", 0)).
-		Then(clientv3.OpGet(key)).
-		Else(clientv3.OpPut(key, val)).
-		Commit()
-	if err != nil {
-		t.Errorf("error executing txn: %v", err)
+	resp, err := kvPutOrGet(kvc, ctx, key, val)
+	if err != nil || resp == nil {
+		t.Fatalf("error executing txn: %v", err)
 	}
-	resp_range := resp.Responses[0].Response
-	t.Logf("write txn resp: %#v", resp_range)
+	t.Logf("first response: %#v", resp)
+
+	var verified bool
+	/*
+		verified = verifyTxnResponse(resp, key, val) // This panics?
+		if !verified {
+			t.Errorf("kv verification failed")
+		}
+	*/
 
 	// Get the key; test its value
 	got, err = client.Get(ctx, key)
@@ -118,7 +120,10 @@ func txnStaticKey(t *testing.T) {
 	if err != nil {
 		t.Errorf("error executing txn: %v", err)
 	}
-	t.Logf("failed write resp: %#v", resp)
+	verified = verifyTxnResponse(resp, key, val)
+	if verified != true {
+		t.Errorf("verification post if-already-exists failed")
+	}
 
 	// Get the key; test its value
 	got, err = client.Get(ctx, key)
@@ -130,5 +135,4 @@ func txnStaticKey(t *testing.T) {
 		t.Errorf("%s was overwritten to: %s", key, string(got.Kvs[0].Value))
 	}
 	t.Logf("%#v\n", string(got.Kvs[0].Value))
-	cancel()
 }
