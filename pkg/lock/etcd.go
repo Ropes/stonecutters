@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/etcdserver/etcdserverpb"
 )
 
 // TODO: Abstract to interfaces
@@ -28,7 +29,7 @@ func acquireLease(c *clientv3.Client, ctx context.Context, timeout int64) (clien
 	return resp.ID, nil
 }
 
-func revokeLease(c *clientv3.Client, ctx context.Context, lease clientv3.LeaseID) error {
+func revokeLease(client *clientv3.Client, ctx context.Context, lease clientv3.LeaseID) error {
 	_, err := client.Revoke(ctx, lease)
 	return err
 }
@@ -80,19 +81,27 @@ func respSingleKv(tr *clientv3.TxnResponse) (string, string) {
 
 // verifyTxnResponse recieves a TxnResponse and validates that ek,ev key-value
 // pair are written in etcd.
-func verifyTxnResponse(resp *clientv3.TxnResponse, ek, ev string) bool {
-	if resp == nil {
-		return false
-	}
+func verifyTxnResponse(resp clientv3.TxnResponse, ek, ev string) bool {
 	responses := resp.Responses
 	if len(responses) == 1 {
-		rr := responses[0].GetResponseRange()
-		if len(rr.Kvs) == 1 {
-			Kvs := rr.Kvs[0]
-			k, v := string(Kvs.Key), string(Kvs.Value)
-			if k == ek && v == ev {
-				return true
-			}
+		resp := responses[0].GetResponse()
+		fmt.Printf("---- %T %#v\n", resp, resp)
+		switch T := resp.(type) {
+		case *etcdserverpb.ResponseOp_ResponsePut:
+			kv := T.ResponsePut
+			fmt.Printf("---- %T %#v\n", kv, kv)
+
+			/*
+				if string(kv.Key) == ek && string(kv.Value) == ev {
+					return true
+				}
+			*/
+		case *etcdserverpb.ResponseOp_ResponseRange:
+			rr := T.ResponseRange
+			fmt.Printf("---- %T %#v\n", rr, rr)
+
+		default:
+			return false
 		}
 	}
 	return false

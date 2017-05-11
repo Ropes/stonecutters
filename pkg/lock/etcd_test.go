@@ -97,7 +97,7 @@ func txnStaticKey(t *testing.T) {
 
 	var verified bool
 	/*
-		verified = verifyTxnResponse(resp, key, val) // This panics?
+		verified = verifyTxnResponse(*resp, key, val) // This panics?
 		if !verified {
 			t.Errorf("kv verification failed")
 		}
@@ -123,7 +123,7 @@ func txnStaticKey(t *testing.T) {
 	if err != nil {
 		t.Errorf("error executing txn: %v", err)
 	}
-	verified = verifyTxnResponse(resp, key, val)
+	verified = verifyTxnResponse(*resp, key, val)
 	if verified != true {
 		t.Errorf("verification post if-already-exists failed")
 	}
@@ -178,7 +178,7 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 		}
 	}()
 	t.Logf("%T", tr)
-	valid := verifyTxnResponse(tr, K, V)
+	valid := verifyTxnResponse(*tr, K, V)
 	if !valid {
 		t.Errorf("write txn not valid!")
 	}
@@ -204,18 +204,12 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 	if tr == nil {
 		t.Fatalf("txnResp is nil")
 	}
-	//t.Logf("txnresp:\n%#v", tr)
-
-	time.Sleep(1 * time.Second)
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("Recovered in TestAcquireKeyLeaseAndRevoke: %v", r)
-		}
-	}()
-	t.Logf("%T", tr)
-	valid := verifyTxnResponse(tr, K, V)
-	if !valid {
-		t.Errorf("write txn not valid!")
+	got, err := client.Get(ctx, K)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(got.Kvs[0].Value) != V {
+		t.Errorf("%s was overwritten to: %s", key, string(got.Kvs[0].Value))
 	}
 
 	rresp, err := client.Revoke(ctx, lease)
@@ -225,7 +219,7 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 	t.Logf("revoke response: %#v", rresp)
 	time.Sleep(6500 * time.Millisecond)
 
-	got, err := client.Get(ctx, K)
+	got, err = client.Get(ctx, K)
 	if err != nil {
 		t.Error(err)
 	}
