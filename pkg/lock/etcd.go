@@ -19,7 +19,7 @@ func GetID(c clientv3.Client, ctx context.Context, ids []string) (string, error)
 	return "", nil
 }
 
-func acquireLease(c clientv3.Client, ctx context.Context, timeout int64) (clientv3.LeaseID, error) {
+func acquireLease(c *clientv3.Client, ctx context.Context, timeout int64) (clientv3.LeaseID, error) {
 	resp, err := c.Grant(ctx, timeout)
 	if err != nil {
 		return 0, err
@@ -36,6 +36,21 @@ func kvPutOrGet(kvc clientv3.KV, ctx context.Context, key, val string) (*clientv
 	resp, err := kvc.Txn(ctx).
 		If(clientv3.Compare(clientv3.CreateRevision(key), ">", 0)).
 		Then(clientv3.OpGet(key)).
+		Else(clientv3.OpPut(key, val)).
+		Commit()
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// kvPutOrGet writes a key-val pair with a lease given that the key is not already in use.
+// If the key exists it is returned, if it does not exist they key-val is Put.
+// TxnResponse, error is returned.
+func kvPutLeaseOrGet(kvc clientv3.KV, ctx context.Context, lease clientv3.LeaseID, key, val string) (*clientv3.TxnResponse, error) {
+	resp, err := kvc.Txn(ctx).
+		If(clientv3.Compare(clientv3.CreateRevision(key), ">", 0)).
+		Then(clientv3.OpGet(key, clientv3.WithLease(lease))).
 		Else(clientv3.OpPut(key, val)).
 		Commit()
 	if err != nil {

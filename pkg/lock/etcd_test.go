@@ -136,3 +136,43 @@ func txnStaticKey(t *testing.T) {
 	}
 	t.Logf("%#v\n", string(got.Kvs[0].Value))
 }
+
+func TestAcquireLease(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	lease, err := acquireLease(client, ctx, 10)
+	if lease == 0 {
+		t.Errorf("lease id is 0")
+	}
+	if err != nil {
+		t.Errorf("error acquiring lease: %v", err)
+	}
+	t.Logf("leaseID: %#v", lease)
+}
+
+func TestAcquireLeaseAndKey(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	lease, err := acquireLease(client, ctx, 10)
+	if lease == 0 {
+		t.Errorf("lease id is 0")
+	}
+	if err != nil {
+		t.Errorf("error acquiring lease: %v", err)
+	}
+
+	K, V := "Mazama", "sepor"
+
+	tr, err := kvPutLeaseOrGet(client, ctx, lease, K, V)
+	if err != nil {
+		t.Fatalf("txn error: %v", err)
+	}
+	//t.Logf("txnresp:\n%#v", tr)
+
+	valid := verifyTxnResponse(tr, K, V)
+	if !valid {
+		t.Errorf("write txn not valid!")
+	}
+
+}
