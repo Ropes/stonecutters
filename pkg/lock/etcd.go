@@ -19,12 +19,18 @@ func GetID(c clientv3.Client, ctx context.Context, ids []string) (string, error)
 	return "", nil
 }
 
+// Lease Functionality
 func acquireLease(c *clientv3.Client, ctx context.Context, timeout int64) (clientv3.LeaseID, error) {
 	resp, err := c.Grant(ctx, timeout)
 	if err != nil {
 		return 0, err
 	}
 	return resp.ID, nil
+}
+
+func revokeLease(c *clientv3.Client, ctx context.Context, lease clientv3.LeaseID) error {
+	_, err := client.Revoke(ctx, lease)
+	return err
 }
 
 var PutError = fmt.Errorf("error putting key:value pair")
@@ -50,8 +56,8 @@ func kvPutOrGet(kvc clientv3.KV, ctx context.Context, key, val string) (*clientv
 func kvPutLeaseOrGet(kvc clientv3.KV, ctx context.Context, lease clientv3.LeaseID, key, val string) (*clientv3.TxnResponse, error) {
 	resp, err := kvc.Txn(ctx).
 		If(clientv3.Compare(clientv3.CreateRevision(key), ">", 0)).
-		Then(clientv3.OpGet(key, clientv3.WithLease(lease))).
-		Else(clientv3.OpPut(key, val)).
+		Then(clientv3.OpGet(key)).
+		Else(clientv3.OpPut(key, val, clientv3.WithLease(lease))).
 		Commit()
 	if err != nil {
 		return nil, err
@@ -75,11 +81,12 @@ func respSingleKv(tr *clientv3.TxnResponse) (string, string) {
 // verifyTxnResponse recieves a TxnResponse and validates that ek,ev key-value
 // pair are written in etcd.
 func verifyTxnResponse(resp *clientv3.TxnResponse, ek, ev string) bool {
-	if resp == nil || resp.Responses == nil {
+	if resp == nil {
 		return false
 	}
-	if len(resp.Responses) == 1 {
-		rr := resp.Responses[0].GetResponseRange()
+	responses := resp.Responses
+	if len(responses) == 1 {
+		rr := responses[0].GetResponseRange()
 		if len(rr.Kvs) == 1 {
 			Kvs := rr.Kvs[0]
 			k, v := string(Kvs.Key), string(Kvs.Value)

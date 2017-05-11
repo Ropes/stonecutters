@@ -64,12 +64,15 @@ func TestEtcd(t *testing.T) {
 func deleteKey(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	keys := []string{key, "Mellow", "Mazama"}
 
-	dresp, err := client.Delete(ctx, key)
-	if err != nil {
-		t.Errorf("error deleting all keys: %v", err)
+	for _, k := range keys {
+		dresp, err := client.Delete(ctx, k)
+		if err != nil {
+			t.Errorf("error deleting all keys: %v", err)
+		}
+		t.Logf("Deleted keys: %#v", dresp.Deleted)
 	}
-	t.Logf("Deleted keys: %#v", dresp.Deleted)
 }
 
 func txnStaticKey(t *testing.T) {
@@ -154,7 +157,7 @@ func TestAcquireLease(t *testing.T) {
 func TestAcquireLeaseAndKey(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	lease, err := acquireLease(client, ctx, 10)
+	lease, err := acquireLease(client, ctx, 5)
 	if lease == 0 {
 		t.Errorf("lease id is 0")
 	}
@@ -163,16 +166,70 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 	}
 
 	K, V := "Mazama", "sepor"
+	tr, err := kvPutLeaseOrGet(client, ctx, lease, K, V)
+	if err != nil {
+		t.Fatalf("txn error: %v", err)
+	}
+	t.Logf("txnresp:\n%#v", tr)
+	time.Sleep(1250 * time.Millisecond)
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Recovered in TestAcquireLeaseAndKey: %v", r)
+		}
+	}()
+	t.Logf("%T", tr)
+	valid := verifyTxnResponse(tr, K, V)
+	if !valid {
+		t.Errorf("write txn not valid!")
+	}
+}
+
+func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	lease, err := acquireLease(client, ctx, 5)
+	if lease == 0 {
+		t.Errorf("lease id is 0")
+	}
+	if err != nil {
+		t.Errorf("error acquiring lease: %v", err)
+	}
+
+	K, V := "Mellow", "pdx"
 
 	tr, err := kvPutLeaseOrGet(client, ctx, lease, K, V)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
+	if tr == nil {
+		t.Fatalf("txnResp is nil")
+	}
 	//t.Logf("txnresp:\n%#v", tr)
 
+	time.Sleep(1 * time.Second)
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Recovered in TestAcquireKeyLeaseAndRevoke: %v", r)
+		}
+	}()
+	t.Logf("%T", tr)
 	valid := verifyTxnResponse(tr, K, V)
 	if !valid {
 		t.Errorf("write txn not valid!")
 	}
 
+	rresp, err := client.Revoke(ctx, lease)
+	if err != nil {
+		t.Errorf("error revoking lease: %v", err)
+	}
+	t.Logf("revoke response: %#v", rresp)
+	time.Sleep(6500 * time.Millisecond)
+
+	got, err := client.Get(ctx, K)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(got.Kvs) > 0 {
+		t.Errorf("no key should remain %s: %s", K, string(got.Kvs[0].Value))
+	}
 }
