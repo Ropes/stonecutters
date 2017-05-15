@@ -237,3 +237,27 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 		t.Errorf("no key should remain %s: %s", K, string(got.Kvs[0].Value))
 	}
 }
+
+func TestGetIDEarly(t *testing.T) {
+	ids := []string{"foo", "man", "chu"}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	for i := 0; i < 3; i++ {
+		leaseID, err := client.Grant(ctx, int64(5))
+		if err != nil {
+			t.Errorf("error creating lease: %v", err)
+		}
+
+		val, err := GetID(client, ctx, leaseID.ID, "hihi", ids)
+		if err != nil {
+			t.Errorf("GetID err: %v", err)
+		}
+		if val == "" {
+			t.Errorf("id returned is empty")
+		} else {
+			t.Logf("assigned: %s", val)
+		}
+	}
+
+}

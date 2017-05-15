@@ -3,7 +3,6 @@ package lock
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
@@ -30,34 +29,15 @@ type Lock struct {
 // If the list of ids are all claimed, the function will pause for 5
 // seconds before iterating over all the ids again, if it fails to lock
 // it returns an error.
-func GetID(c *clientv3.Client, ctx context.Context, key string, ids []string) (string, error) {
-
-	leaseID, keepAliveChan, err := createKeepAliveLease(c, ctx)
-	if err != nil {
-		return "", err
-	}
-	go func() {
-		//TODO: Cleanup actual message handling
-		for {
-			select {
-			case ka, open := <-keepAliveChan:
-				if !open {
-					fmt.Printf("keep alive is dead!\n")
-				}
-				if ka != nil {
-					fmt.Printf(" %d: %d alive\n", leaseID, ka.TTL)
-				}
-			}
-		}
-	}()
+func GetID(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID, name string, ids []string) (string, error) {
 
 	for _, id := range ids {
-		txn, err := kvPutLease(c, ctx, leaseID, key, id)
+		txn, err := kvPutLease(c, ctx, leaseID, id, name)
 		if err != nil {
-			// skip to next key
+			// skip to next id
 			continue
 		} else if txn.Succeeded {
-			v := verifyKvPair(c, key, id)
+			v := verifyKvPair(c, id, name)
 			if v {
 				return id, nil
 			}
@@ -117,8 +97,10 @@ func verifyKvPair(client *clientv3.Client, ek, ev string) bool {
 	if err != nil {
 		return false
 	}
-	if string(got.Kvs[0].Value) == ev {
-		return true
+	if len(got.Kvs) > 0 {
+		if string(got.Kvs[0].Value) == ev {
+			return true
+		}
 	}
 	return false
 }
