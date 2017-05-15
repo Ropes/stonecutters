@@ -2,6 +2,7 @@ package lock
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -22,23 +23,26 @@ var (
 func init() {
 	key = "Denali"
 	val = "wyeast"
-	cfg := embed.NewConfig()
-	cfg.Dir = "default.etcd"
-	cfg.ForceNewCluster = true
-	e, err = embed.StartEtcd(cfg)
-	if err != nil {
-		log.Fatal(err)
+	var etcdembed = os.Getenv("ETCDEMBED")
+	if etcdembed == "1" {
+		cfg := embed.NewConfig()
+		cfg.Dir = "default.etcd"
+		cfg.ForceNewCluster = true
+		e, err = embed.StartEtcd(cfg)
+		if err != nil {
+			log.Fatal(err)
+		}
+		select {
+		case <-e.Server.ReadyNotify():
+			log.Infof("Server is ready!")
+		case <-time.After(6 * time.Second):
+			e.Server.Stop() // trigger a shutdown
+			log.Infof("Server took too long to start!")
+		}
+		go func() {
+			log.Fatal(<-e.Err())
+		}()
 	}
-	select {
-	case <-e.Server.ReadyNotify():
-		log.Infof("Server is ready!")
-	case <-time.After(6 * time.Second):
-		e.Server.Stop() // trigger a shutdown
-		log.Infof("Server took too long to start!")
-	}
-	go func() {
-		log.Fatal(<-e.Err())
-	}()
 
 	ccfg := &clientv3.Config{
 		Endpoints:   []string{"localhost:2379"},
@@ -145,7 +149,7 @@ func TestAcquireLease(t *testing.T) {
 	defer cancel()
 
 	lease, err := acquireLease(client, ctx, 10)
-	if lease == 0 {
+	if lease == nil || lease.ID == 0 {
 		t.Errorf("lease id is 0")
 	}
 	if err != nil {
@@ -158,7 +162,7 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	lease, err := acquireLease(client, ctx, 5)
-	if lease == 0 {
+	if lease.ID == 0 {
 		t.Errorf("lease id is 0")
 	}
 	if err != nil {
@@ -166,7 +170,7 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 	}
 
 	K, V := "Mazama", "sepor"
-	tr, err := kvPutLeaseOrGet(client, ctx, lease, K, V)
+	tr, err := kvPutLeaseOrGet(client, ctx, lease.ID, K, V)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
@@ -177,7 +181,7 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 			t.Errorf("Recovered in TestAcquireLeaseAndKey: %v", r)
 		}
 	}()
-	t.Logf("%T", tr)
+	t.Logf("%#v", tr)
 	valid := verifyTxnResponse(*tr, K, V)
 	if !valid {
 		t.Errorf("write txn not valid!")
@@ -188,7 +192,7 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	lease, err := acquireLease(client, ctx, 5)
-	if lease == 0 {
+	if lease.ID == 0 {
 		t.Errorf("lease id is 0")
 	}
 	if err != nil {
@@ -197,7 +201,7 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 
 	K, V := "Mellow", "pdx"
 
-	tr, err := kvPutLeaseOrGet(client, ctx, lease, K, V)
+	tr, err := kvPutLeaseOrGet(client, ctx, lease.ID, K, V)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
@@ -212,7 +216,7 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 		t.Errorf("%s was overwritten to: %s", key, string(got.Kvs[0].Value))
 	}
 
-	rresp, err := client.Revoke(ctx, lease)
+	rresp, err := client.Revoke(ctx, lease.ID)
 	if err != nil {
 		t.Errorf("error revoking lease: %v", err)
 	}

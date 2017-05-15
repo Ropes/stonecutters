@@ -2,7 +2,9 @@ package lock
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/etcdserverpb"
@@ -21,16 +23,16 @@ func GetID(c clientv3.Client, ctx context.Context, ids []string) (string, error)
 }
 
 // Lease Functionality
-func acquireLease(c *clientv3.Client, ctx context.Context, timeout int64) (clientv3.LeaseID, error) {
+func acquireLease(c *clientv3.Client, ctx context.Context, timeout int64) (*clientv3.LeaseGrantResponse, error) {
 	resp, err := c.Grant(ctx, timeout)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return resp.ID, nil
+	return resp, nil
 }
 
-func revokeLease(client *clientv3.Client, ctx context.Context, lease clientv3.LeaseID) error {
-	_, err := client.Revoke(ctx, lease)
+func revokeLease(client *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID) error {
+	_, err := client.Revoke(ctx, leaseID)
 	return err
 }
 
@@ -53,15 +55,17 @@ func kvPutOrGet(kvc clientv3.KV, ctx context.Context, key, val string) (*clientv
 
 // kvPutOrGet writes a key-val pair with a lease given that the key is not already in use.
 // If the key exists it is returned, if it does not exist they key-val is Put.
-// TxnResponse, error is returned.
-func kvPutLeaseOrGet(kvc clientv3.KV, ctx context.Context, lease clientv3.LeaseID, key, val string) (*clientv3.TxnResponse, error) {
+// TxnResponse, error is returned. Only returns a single key-value pair.
+func kvPutLeaseOrGet(kvc clientv3.KV, ctx context.Context, leaseID clientv3.LeaseID, key, val string) (*clientv3.TxnResponse, error) {
 	resp, err := kvc.Txn(ctx).
-		If(clientv3.Compare(clientv3.CreateRevision(key), ">", 0)).
-		Then(clientv3.OpGet(key)).
-		Else(clientv3.OpPut(key, val, clientv3.WithLease(lease))).
+		If(clientv3.Compare(clientv3.Version(key), "=", 0)).
+		Then(clientv3.OpPut(key, val, clientv3.WithLease(leaseID))).
 		Commit()
 	if err != nil {
 		return nil, err
+	}
+	if resp.Succeeded == false {
+		return nil, errors.New(fmt.Sprintf("key %q already registered", key))
 	}
 	return resp, nil
 }
@@ -83,23 +87,34 @@ func respSingleKv(tr *clientv3.TxnResponse) (string, string) {
 // pair are written in etcd.
 func verifyTxnResponse(resp clientv3.TxnResponse, ek, ev string) bool {
 	responses := resp.Responses
+	if !resp.Succeeded {
+		return false
+	}
 	if len(responses) == 1 {
 		resp := responses[0].GetResponse()
 		fmt.Printf("---- %T %#v\n", resp, resp)
 		switch T := resp.(type) {
 		case *etcdserverpb.ResponseOp_ResponsePut:
-			kv := T.ResponsePut
-			fmt.Printf("---- %T %#v\n", kv, kv)
+			//p := T.ResponsePut
+			//pr := responses[0].GetResponsePut()
 
-			/*
-				if string(kv.Key) == ek && string(kv.Value) == ev {
-					return true
-				}
-			*/
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			got, err := client.Get(ctx, ek)
+			if err != nil {
+				return false
+			}
+			if string(got.Kvs[0].Value) != ev {
+				return false
+			}
+			return true //Txn Succeded, and Value matches
 		case *etcdserverpb.ResponseOp_ResponseRange:
 			rr := T.ResponseRange
-			fmt.Printf("---- %T %#v\n", rr, rr)
+			fmt.Printf("RespOp_RespRange ---- \n%T %#v\n", rr, rr)
+			fmt.Printf("    Header       ---- %#v", rr.Header)
 
+		case *etcdserverpb.ResponseOp_ResponseDeleteRange:
+			fmt.Printf("should not happen..")
 		default:
 			return false
 		}
