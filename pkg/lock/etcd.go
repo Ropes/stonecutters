@@ -7,8 +7,20 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/etcdserver/etcdserverpb"
 )
+
+var (
+	TxnError            = errors.New("lock: error running PutLease Txn")
+	PutSucceededFailure = errors.New("lock: key already registered")
+	LeaseFailure        = errors.New("lock: error creating lease keep alive for key")
+	defaultTimeout      = int64(60)
+)
+
+type Lock struct {
+	Key   string
+	Value string
+	Ctx   context.Context
+}
 
 // TODO: Abstract to interfaces
 // for now; implement etcd as locking/lease mechanism for claiming names
@@ -18,25 +30,68 @@ import (
 // If the list of ids are all claimed, the function will pause for 5
 // seconds before iterating over all the ids again, if it fails to lock
 // it returns an error.
-func GetID(c clientv3.Client, ctx context.Context, ids []string) (string, error) {
+func GetID(c *clientv3.Client, ctx context.Context, key string, ids []string) (string, error) {
+
+	leaseID, keepAliveChan, err := createKeepAliveLease(c, ctx)
+	if err != nil {
+		return "", err
+	}
+	go func() {
+		//TODO: Cleanup actual message handling
+		for {
+			select {
+			case ka, open := <-keepAliveChan:
+				if !open {
+					fmt.Printf("keep alive is dead!\n")
+				}
+				if ka != nil {
+					fmt.Printf(" %d: %d alive\n", leaseID, ka.TTL)
+				}
+			}
+		}
+	}()
+
+	for _, id := range ids {
+		txn, err := kvPutLease(c, ctx, leaseID, key, id)
+		if err != nil {
+			// skip to next key
+			continue
+		} else if txn.Succeeded {
+			v := verifyKvPair(c, key, id)
+			if v {
+				return id, nil
+			}
+		}
+	}
 	return "", nil
 }
 
 // Lease Functionality
-func acquireLease(c *clientv3.Client, ctx context.Context, timeout int64) (*clientv3.LeaseGrantResponse, error) {
-	resp, err := c.Grant(ctx, timeout)
+func createKeepAliveLease(c *clientv3.Client, ctx context.Context) (clientv3.LeaseID, <-chan *clientv3.LeaseKeepAliveResponse, error) {
+	lease := clientv3.NewLease(c)
+
+	id, err := acquireLeaseID(lease, ctx, defaultTimeout)
+
+	keepAlive, err := lease.KeepAlive(ctx, id)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	return resp, nil
+
+	return id, keepAlive, nil
+}
+
+func acquireLeaseID(lease clientv3.Lease, ctx context.Context, timeout int64) (clientv3.LeaseID, error) {
+	res, err := lease.Grant(ctx, timeout)
+	if err != nil {
+		return 0, err
+	}
+	return res.ID, nil
 }
 
 func revokeLease(client *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID) error {
 	_, err := client.Revoke(ctx, leaseID)
 	return err
 }
-
-var PutError = fmt.Errorf("lock: error putting key-value pair")
 
 // kvPutLease writes a key-val pair with a lease given that the key is not already in use.
 // If the key exists the Txn fails, if it does not exist they key-val is Put.
@@ -49,22 +104,9 @@ func kvPutLease(kvc clientv3.KV, ctx context.Context, leaseID clientv3.LeaseID, 
 		return nil, err
 	}
 	if resp.Succeeded == false {
-		return nil, errors.New(fmt.Sprintf("key %q already registered", key))
+		return nil, PutSucceededFailure
 	}
 	return resp, nil
-}
-
-// respSingleKv takes a TxnResponse and returns the key-value pair
-// assuming there is only one returned by the ResponseRange.
-func respSingleKv(tr *clientv3.TxnResponse) (string, string) {
-	if len(tr.Responses) == 1 {
-		rop := tr.Responses[0].GetResponseRange()
-		if len(rop.Kvs) == 1 {
-			Kvs := rop.Kvs[0]
-			return string(Kvs.Key), string(Kvs.Value)
-		}
-	}
-	return "", ""
 }
 
 // verifyKvPair returns true if expected key-value strings match their expected values
@@ -79,47 +121,4 @@ func verifyKvPair(client *clientv3.Client, ek, ev string) bool {
 		return true
 	}
 	return false
-}
-
-// deleteme
-// verifyTxnResponse recieves a TxnResponse and validates that ek,ev key-value
-// pair are written in etcd.
-func verifyTxnResponse(client *clientv3.Client, resp clientv3.TxnResponse, ek, ev string) bool {
-	responses := resp.Responses
-	if len(responses) == 1 {
-		resp := responses[0].GetResponse()
-		switch resp.(type) {
-		case *etcdserverpb.ResponseOp_ResponsePut:
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			got, err := client.Get(ctx, ek)
-			if err != nil {
-				return false
-			}
-			if string(got.Kvs[0].Value) == ev {
-				return true
-			}
-			return true //Txn Succeded, and Value matches
-		case *etcdserverpb.ResponseOp_ResponseRange:
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			got, err := client.Get(ctx, ek)
-			if err != nil {
-				//fmt.Printf("failed to GET key %s\n%v", ek, got.Kvs)
-				return false
-			}
-			if string(got.Kvs[0].Value) == ev {
-				return true
-			}
-		default:
-			fmt.Printf("default response hit; failure\n")
-			return false
-		}
-	}
-	return false
-}
-
-// client, context, kv, lease
-func claimName(c clientv3.Client, ctx context.Context, id string) (bool, error) {
-	return true, nil
 }

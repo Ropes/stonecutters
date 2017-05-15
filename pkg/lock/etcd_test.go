@@ -94,14 +94,14 @@ func txnStaticKey(t *testing.T) {
 		t.Errorf("data already logged from last run %s: %s", key, string(got.Kvs[0].Value))
 	}
 
-	lease, err := acquireLease(client, ctx, 10)
-	if lease == nil || lease.ID == 0 {
+	lease, err := acquireLeaseID(client, ctx, 10)
+	if lease == 0 {
 		t.Errorf("lease id is 0")
 	}
 	if err != nil {
 		t.Errorf("error acquiring lease: %v", err)
 	}
-	resp, err := kvPutLease(kvc, ctx, lease.ID, key, val)
+	resp, err := kvPutLease(kvc, ctx, lease, key, val)
 	if err != nil || resp == nil {
 		t.Fatalf("error executing txn: %v", err)
 	}
@@ -154,8 +154,8 @@ func TestAcquireLease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	lease, err := acquireLease(client, ctx, 10)
-	if lease == nil || lease.ID == 0 {
+	lease, err := acquireLeaseID(client, ctx, 10)
+	if lease == 0 {
 		t.Errorf("lease id is 0")
 	}
 	if err != nil {
@@ -167,8 +167,8 @@ func TestAcquireLease(t *testing.T) {
 func TestAcquireLeaseAndKey(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	lease, err := acquireLease(client, ctx, 5)
-	if lease.ID == 0 {
+	lease, err := acquireLeaseID(client, ctx, 5)
+	if lease == 0 {
 		t.Errorf("lease id is 0")
 	}
 	if err != nil {
@@ -176,7 +176,7 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 	}
 
 	K, V := "Mazama", "sepor"
-	tr, err := kvPutLease(client, ctx, lease.ID, K, V)
+	tr, err := kvPutLease(client, ctx, lease, K, V)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
@@ -197,8 +197,8 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	lease, err := acquireLease(client, ctx, 5)
-	if lease.ID == 0 {
+	lease, err := acquireLeaseID(client, ctx, 5)
+	if lease == 0 {
 		t.Errorf("lease id is 0")
 	}
 	if err != nil {
@@ -207,7 +207,7 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 
 	K, V := "Mellow", "pdx"
 
-	tr, err := kvPutLease(client, ctx, lease.ID, K, V)
+	tr, err := kvPutLease(client, ctx, lease, K, V)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
@@ -222,7 +222,7 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 		t.Errorf("%s was overwritten to: %s", key, string(got.Kvs[0].Value))
 	}
 
-	rresp, err := client.Revoke(ctx, lease.ID)
+	rresp, err := client.Revoke(ctx, lease)
 	if err != nil {
 		t.Errorf("error revoking lease: %v", err)
 	}
