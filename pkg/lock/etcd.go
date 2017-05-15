@@ -36,27 +36,11 @@ func revokeLease(client *clientv3.Client, ctx context.Context, leaseID clientv3.
 	return err
 }
 
-var PutError = fmt.Errorf("error putting key:value pair")
+var PutError = fmt.Errorf("lock: error putting key-value pair")
 
-// kvPutOrGet writes a key-val pair given that the key is not already in use.
-// If the key exists it is returned, if it does not exist they key-val is Put.
-// TxnResponse, error is returned.
-func kvPutOrGet(kvc clientv3.KV, ctx context.Context, key, val string) (*clientv3.TxnResponse, error) {
-	resp, err := kvc.Txn(ctx).
-		If(clientv3.Compare(clientv3.CreateRevision(key), ">", 0)).
-		Then(clientv3.OpGet(key)).
-		Else(clientv3.OpPut(key, val)).
-		Commit()
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// kvPutOrGet writes a key-val pair with a lease given that the key is not already in use.
-// If the key exists it is returned, if it does not exist they key-val is Put.
-// TxnResponse, error is returned. Only returns a single key-value pair.
-func kvPutLeaseOrGet(kvc clientv3.KV, ctx context.Context, leaseID clientv3.LeaseID, key, val string) (*clientv3.TxnResponse, error) {
+// kvPutLease writes a key-val pair with a lease given that the key is not already in use.
+// If the key exists the Txn fails, if it does not exist they key-val is Put.
+func kvPutLease(kvc clientv3.KV, ctx context.Context, leaseID clientv3.LeaseID, key, val string) (*clientv3.TxnResponse, error) {
 	resp, err := kvc.Txn(ctx).
 		If(clientv3.Compare(clientv3.Version(key), "=", 0)).
 		Then(clientv3.OpPut(key, val, clientv3.WithLease(leaseID))).
@@ -83,39 +67,52 @@ func respSingleKv(tr *clientv3.TxnResponse) (string, string) {
 	return "", ""
 }
 
-// verifyTxnResponse recieves a TxnResponse and validates that ek,ev key-value
-// pair are written in etcd.
-func verifyTxnResponse(resp clientv3.TxnResponse, ek, ev string) bool {
-	responses := resp.Responses
-	if !resp.Succeeded {
+// verifyKvPair returns true if expected key-value strings match their expected values
+func verifyKvPair(client *clientv3.Client, ek, ev string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	got, err := client.Get(ctx, ek)
+	if err != nil {
 		return false
 	}
+	if string(got.Kvs[0].Value) == ev {
+		return true
+	}
+	return false
+}
+
+// deleteme
+// verifyTxnResponse recieves a TxnResponse and validates that ek,ev key-value
+// pair are written in etcd.
+func verifyTxnResponse(client *clientv3.Client, resp clientv3.TxnResponse, ek, ev string) bool {
+	responses := resp.Responses
 	if len(responses) == 1 {
 		resp := responses[0].GetResponse()
-		fmt.Printf("---- %T %#v\n", resp, resp)
-		switch T := resp.(type) {
+		switch resp.(type) {
 		case *etcdserverpb.ResponseOp_ResponsePut:
-			//p := T.ResponsePut
-			//pr := responses[0].GetResponsePut()
-
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			got, err := client.Get(ctx, ek)
 			if err != nil {
 				return false
 			}
-			if string(got.Kvs[0].Value) != ev {
-				return false
+			if string(got.Kvs[0].Value) == ev {
+				return true
 			}
 			return true //Txn Succeded, and Value matches
 		case *etcdserverpb.ResponseOp_ResponseRange:
-			rr := T.ResponseRange
-			fmt.Printf("RespOp_RespRange ---- \n%T %#v\n", rr, rr)
-			fmt.Printf("    Header       ---- %#v", rr.Header)
-
-		case *etcdserverpb.ResponseOp_ResponseDeleteRange:
-			fmt.Printf("should not happen..")
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			got, err := client.Get(ctx, ek)
+			if err != nil {
+				//fmt.Printf("failed to GET key %s\n%v", ek, got.Kvs)
+				return false
+			}
+			if string(got.Kvs[0].Value) == ev {
+				return true
+			}
 		default:
+			fmt.Printf("default response hit; failure\n")
 			return false
 		}
 	}

@@ -68,15 +68,16 @@ func TestEtcd(t *testing.T) {
 func deleteKey(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	keys := []string{key, "Mellow", "Mazama"}
+	keys := []string{"Denali", "Mellow", "Mazama"}
 
 	for _, k := range keys {
 		dresp, err := client.Delete(ctx, k)
 		if err != nil {
 			t.Errorf("error deleting all keys: %v", err)
 		}
-		t.Logf("Deleted keys: %#v", dresp.Deleted)
+		t.Logf("Deleted key: %s %#v", k, dresp)
 	}
+	time.Sleep(1 * time.Second)
 }
 
 func txnStaticKey(t *testing.T) {
@@ -93,19 +94,24 @@ func txnStaticKey(t *testing.T) {
 		t.Errorf("data already logged from last run %s: %s", key, string(got.Kvs[0].Value))
 	}
 
-	resp, err := kvPutOrGet(kvc, ctx, key, val)
+	lease, err := acquireLease(client, ctx, 10)
+	if lease == nil || lease.ID == 0 {
+		t.Errorf("lease id is 0")
+	}
+	if err != nil {
+		t.Errorf("error acquiring lease: %v", err)
+	}
+	resp, err := kvPutLease(kvc, ctx, lease.ID, key, val)
 	if err != nil || resp == nil {
 		t.Fatalf("error executing txn: %v", err)
 	}
 	t.Logf("first response: %#v", resp)
 
 	var verified bool
-	/*
-		verified = verifyTxnResponse(*resp, key, val) // This panics?
-		if !verified {
-			t.Errorf("kv verification failed")
-		}
-	*/
+	verified = verifyKvPair(client, key, val)
+	if !verified {
+		t.Errorf("kv verification failed")
+	}
 
 	// Get the key; test its value
 	got, err = client.Get(ctx, key)
@@ -127,8 +133,8 @@ func txnStaticKey(t *testing.T) {
 	if err != nil {
 		t.Errorf("error executing txn: %v", err)
 	}
-	verified = verifyTxnResponse(*resp, key, val)
-	if verified != true {
+	verified = verifyKvPair(client, key, val)
+	if !verified {
 		t.Errorf("verification post if-already-exists failed")
 	}
 
@@ -170,7 +176,7 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 	}
 
 	K, V := "Mazama", "sepor"
-	tr, err := kvPutLeaseOrGet(client, ctx, lease.ID, K, V)
+	tr, err := kvPutLease(client, ctx, lease.ID, K, V)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
@@ -182,7 +188,7 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 		}
 	}()
 	t.Logf("%#v", tr)
-	valid := verifyTxnResponse(*tr, K, V)
+	valid := verifyKvPair(client, K, V)
 	if !valid {
 		t.Errorf("write txn not valid!")
 	}
@@ -201,7 +207,7 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 
 	K, V := "Mellow", "pdx"
 
-	tr, err := kvPutLeaseOrGet(client, ctx, lease.ID, K, V)
+	tr, err := kvPutLease(client, ctx, lease.ID, K, V)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
