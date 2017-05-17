@@ -24,6 +24,8 @@ type Lock struct {
 // TODO: Abstract to interfaces
 // for now; implement etcd as locking/lease mechanism for claiming names
 
+var IDsExhaustedError = errors.New("lock: identifiers exhausted, failed to claim from given list")
+
 // GetID iterates over the passed 'ids' and attempts to claim one in
 // etcd with a Lease which is persisted until the context is closed.
 // If the list of ids are all claimed, the function will pause for 5
@@ -43,7 +45,7 @@ func GetID(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID, na
 			}
 		}
 	}
-	return "", nil
+	return "", IDsExhaustedError
 }
 
 // Lease Functionality
