@@ -2,6 +2,7 @@ package lock
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -243,13 +244,14 @@ func TestGetIDEarly(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	for i := 0; i < 3; i++ {
-		leaseID, err := client.Grant(ctx, int64(5))
-		if err != nil {
-			t.Errorf("error creating lease: %v", err)
-		}
+	//Use the same lease id for each ID, will timeout
+	leaseID, err := client.Grant(ctx, int64(5))
+	if err != nil {
+		t.Errorf("error creating lease: %v", err)
+	}
 
-		val, err := GetID(client, ctx, leaseID.ID, "hihi", ids)
+	for i := 0; i < 3; i++ {
+		val, err := GetID(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
 		if err != nil {
 			t.Errorf("GetID err: %v", err)
 		}
@@ -259,7 +261,34 @@ func TestGetIDEarly(t *testing.T) {
 			t.Logf("assigned: %s", val)
 		}
 	}
+}
 
+func TestGetIDFailure(t *testing.T) {
+	ids := []string{"foofoo", "manman", "chuchu"}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	//Use the same lease id for each ID, will timeout
+	leaseID, err := client.Grant(ctx, int64(5))
+	if err != nil {
+		t.Errorf("error creating lease: %v", err)
+	}
+
+	for i := 0; i < 4; i++ {
+		val, err := GetID(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
+		if err != nil && i < 3 {
+			t.Errorf("GetID err: %v", err)
+		}
+		if err != nil && i >= 3 {
+			t.Logf("GetID err: %v", err)
+			continue
+		}
+		if val == "" {
+			t.Errorf("id returned is empty")
+		} else {
+			t.Logf("assigned: %s", val)
+		}
+	}
 }
 
 func TestGetIDFailure(t *testing.T) {
