@@ -30,13 +30,15 @@ foo-wedc -> foo-MtRainier
 ## API
 
 ```go
+IDs := []string{"coffee", "tea", "bikes"}
+
 ctx, cancl := context.WithCancel()
 defer cancl()
-IDs := []string{"coffee", "tea", "bikes"}
-st := Stonecutters(etcdClient, ctx, IDs)
 
-id := st.Get(ctx)
-//        |->Facilitates holding the lease
+// Responsibility of keeping lease alive is up to caller
+lease, err :=  etcdclient.Grant(ctx, int64(5))
 
+id, err := st.GetID(etcdclient, ctx, leaseID.ID, "hostname", IDs)
+...
 ```
 
