@@ -11,6 +11,8 @@ import (
 var (
 	TxnError            = errors.New("lock: error running PutLease Txn")
 	PutSucceededFailure = errors.New("lock: key already registered")
+	GetIdFailure        = errors.New("lock: failed to get ID from list")
+	VerificationError   = errors.New("lock: k-v values do not match txn request")
 	LeaseFailure        = errors.New("lock: error creating lease keep alive for key")
 	defaultTimeout      = int64(60)
 )
@@ -30,20 +32,23 @@ type Lock struct {
 // seconds before iterating over all the ids again, if it fails to lock
 // it returns an error.
 func GetID(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID, name string, ids []string) (string, error) {
-
-	for _, id := range ids {
-		txn, err := kvPutLease(c, ctx, leaseID, id, name)
-		if err != nil {
-			// skip to next id
-			continue
-		} else if txn.Succeeded {
-			v := verifyKvPair(c, id, name)
-			if v {
-				return id, nil
+	for attempts := 0; attempts < 3; attempts++ {
+		for _, id := range ids {
+			txn, err := kvPutLease(c, ctx, leaseID, id, name)
+			if err != nil {
+				// skip to next id
+				continue
+			} else if txn.Succeeded {
+				v := verifyKvPair(c, id, name)
+				if v {
+					return id, nil
+				} else {
+					return "", VerificationError
+				}
 			}
 		}
 	}
-	return "", nil
+	return "", GetIdFailure
 }
 
 // Lease Functionality

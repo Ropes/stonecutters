@@ -261,3 +261,45 @@ func TestGetIDEarly(t *testing.T) {
 	}
 
 }
+
+func TestGetIDFailure(t *testing.T) {
+	ids := []string{"oof", "nam", "uhc"}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	for i := 0; i < 3; i++ {
+		leaseID, err := client.Grant(ctx, int64(30))
+		if err != nil {
+			t.Errorf("error creating lease: %v", err)
+		}
+
+		val, err := GetID(client, ctx, leaseID.ID, "hihi", ids)
+		if err != nil {
+			t.Errorf("GetID err: %v", err)
+		}
+		if val == "" {
+			t.Errorf("id returned is empty")
+		} else {
+			t.Logf("assigned: %s", val)
+		}
+	}
+
+	// These GetID requests should fail
+	for i := 0; i < 3; i++ {
+		leaseID, err := client.Grant(ctx, int64(30))
+		if err != nil {
+			t.Errorf("error creating lease: %v", err)
+		}
+
+		val, err := GetID(client, ctx, leaseID.ID, "hihi", ids)
+		if err != nil {
+			t.Logf("GetID expected err: %v", err)
+		}
+		if val != "" {
+			t.Errorf("val[%s] should not be granted an id!", val)
+		}
+		if err != GetIdFailure {
+			t.Errorf("err[%v] should be GetIdFailure")
+		}
+	}
+}
