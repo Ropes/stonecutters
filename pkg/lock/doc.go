@@ -10,6 +10,6 @@
 //    // Responsibility of keeping lease alive is up to caller
 //    lease, err :=  etcdclient.Grant(ctx, int64(5))
 //
-//    id, err := st.GetID(etcdclient, ctx, leaseID.ID, "hostname", IDs)
+//    id, err := st.Join(etcdclient, ctx, leaseID.ID, "hostname", IDs)
 //    ...
 package lock

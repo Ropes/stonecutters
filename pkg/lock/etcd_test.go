@@ -239,7 +239,7 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 	}
 }
 
-func TestGetIDEarly(t *testing.T) {
+func TestJoinEarly(t *testing.T) {
 	ids := []string{"foo", "man", "chu"}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -251,9 +251,9 @@ func TestGetIDEarly(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		val, err := GetID(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
+		val, err := Join(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
 		if err != nil {
-			t.Errorf("GetID err: %v", err)
+			t.Errorf("Join err: %v", err)
 		}
 		if val == "" {
 			t.Errorf("id returned is empty")
@@ -263,7 +263,7 @@ func TestGetIDEarly(t *testing.T) {
 	}
 }
 
-func TestGetIDFailure(t *testing.T) {
+func TestJoinFailure(t *testing.T) {
 	ids := []string{"foofoo", "manman", "chuchu"}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -275,12 +275,12 @@ func TestGetIDFailure(t *testing.T) {
 	}
 
 	for i := 0; i < 4; i++ {
-		val, err := GetID(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
+		val, err := Join(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
 		if err != nil && i < 3 {
-			t.Errorf("GetID err: %v", err)
+			t.Errorf("Join err: %v", err)
 		}
 		if err != nil && i >= 3 {
-			t.Logf("GetID err: %v", err)
+			t.Logf("Join err: %v", err)
 			continue
 		}
 		if val == "" {
@@ -291,7 +291,7 @@ func TestGetIDFailure(t *testing.T) {
 	}
 }
 
-func TestGetIDFailure2(t *testing.T) {
+func TestJoinFailure2(t *testing.T) {
 	ids := []string{"oof", "nam", "uhc"}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -302,9 +302,9 @@ func TestGetIDFailure2(t *testing.T) {
 			t.Errorf("error creating lease: %v", err)
 		}
 
-		val, err := GetID(client, ctx, leaseID.ID, "hihi", ids)
+		val, err := Join(client, ctx, leaseID.ID, "hihi", ids)
 		if err != nil {
-			t.Errorf("GetID err: %v", err)
+			t.Errorf("Join err: %v", err)
 		}
 		if val == "" {
 			t.Errorf("id returned is empty")
@@ -313,16 +313,16 @@ func TestGetIDFailure2(t *testing.T) {
 		}
 	}
 
-	// These GetID requests should fail
+	// These Join requests should fail
 	for i := 0; i < 3; i++ {
 		leaseID, err := client.Grant(ctx, int64(30))
 		if err != nil {
 			t.Errorf("error creating lease: %v", err)
 		}
 
-		val, err := GetID(client, ctx, leaseID.ID, "hihi", ids)
+		val, err := Join(client, ctx, leaseID.ID, "hihi", ids)
 		if err != nil {
-			t.Logf("GetID expected err: %v", err)
+			t.Logf("Join expected err: %v", err)
 		}
 		if val != "" {
 			t.Errorf("val[%s] should not be granted an id!", val)
@@ -344,9 +344,9 @@ func TestSetFailuresAndList(t *testing.T) {
 			t.Errorf("error creating lease: %v", err)
 		}
 
-		val, err := GetID(client, ctx, leaseID.ID, "hihi", ids)
+		val, err := Join(client, ctx, leaseID.ID, "hihi", ids)
 		if err != nil {
-			t.Errorf("GetID err: %v", err)
+			t.Errorf("Join err: %v", err)
 		}
 		if val == "" {
 			t.Errorf("id returned is empty")
@@ -355,7 +355,7 @@ func TestSetFailuresAndList(t *testing.T) {
 		}
 	}
 
-	members, err := ListMembers(client, ids)
+	members, err := Members(client, ids)
 	if err != nil {
 		t.Errorf("error listing members: %v", err)
 	}

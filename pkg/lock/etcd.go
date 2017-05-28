@@ -22,11 +22,11 @@ type Member struct {
 	Value string // Hosname
 }
 
-// GetID iterates over the passed 'ids' and attempts to claim one in
+// Join iterates over the passed 'ids' and attempts to claim one in
 // etcd with a Lease which is persisted until the context is closed.
 // If the list of ids are all claimed, returns GetIdFailure error with the
 // expectation the caller will handle managing the id list retrys.
-func GetID(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID,
+func Join(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID,
 	name string, ids []string) (string, error) {
 	for _, id := range ids {
 		txn, err := kvPutLease(c, ctx, leaseID, id, name)
