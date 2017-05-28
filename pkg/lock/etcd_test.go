@@ -291,7 +291,7 @@ func TestGetIDFailure(t *testing.T) {
 	}
 }
 
-func TestGetIDFailure(t *testing.T) {
+func TestGetIDFailure2(t *testing.T) {
 	ids := []string{"oof", "nam", "uhc"}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -331,4 +331,36 @@ func TestGetIDFailure(t *testing.T) {
 			t.Errorf("err[%v] should be GetIdFailure")
 		}
 	}
+}
+
+func TestSetFailuresAndList(t *testing.T) {
+	ids := []string{"abc", "def", "ghi"}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	for i := 0; i < 2; i++ {
+		leaseID, err := client.Grant(ctx, int64(30))
+		if err != nil {
+			t.Errorf("error creating lease: %v", err)
+		}
+
+		val, err := GetID(client, ctx, leaseID.ID, "hihi", ids)
+		if err != nil {
+			t.Errorf("GetID err: %v", err)
+		}
+		if val == "" {
+			t.Errorf("id returned is empty")
+		} else {
+			t.Logf("assigned: %s", val)
+		}
+	}
+
+	members, err := ListMembers(client, ids)
+	if err != nil {
+		t.Errorf("error listing members: %v", err)
+	}
+	if len(members) != 2 {
+		t.Errorf("members returned should be 2; not: %d", len(members))
+	}
+	t.Logf("%#v", members)
 }

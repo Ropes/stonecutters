@@ -17,11 +17,17 @@ var (
 	defaultTimeout      = int64(60)
 )
 
+type Member struct {
+	Key   string // Identifier granted
+	Value string // Hosname
+}
+
 // GetID iterates over the passed 'ids' and attempts to claim one in
 // etcd with a Lease which is persisted until the context is closed.
 // If the list of ids are all claimed, returns GetIdFailure error with the
 // expectation the caller will handle managing the id list retrys.
-func GetID(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID, name string, ids []string) (string, error) {
+func GetID(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID,
+	name string, ids []string) (string, error) {
 	for _, id := range ids {
 		txn, err := kvPutLease(c, ctx, leaseID, id, name)
 		if err != nil {
@@ -37,6 +43,26 @@ func GetID(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID, na
 		}
 	}
 	return "", GetIdFailure
+}
+
+func Members(c *clientv3.Client, ids []string) ([]Member, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	members := make([]Member, 0)
+
+	for _, id := range ids {
+		got, err := c.Get(ctx, id)
+		if err == nil {
+			if len(got.Kvs) > 0 {
+				m := Member{Key: id, Value: string(got.Kvs[0].Value)}
+				members = append(members, m)
+			}
+		} else {
+			return nil, err
+		}
+
+	}
+	return members, nil
 }
 
 // Lease Functionality
