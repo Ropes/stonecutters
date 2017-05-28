@@ -65,33 +65,6 @@ func Members(c *clientv3.Client, ids []string) ([]Member, error) {
 	return members, nil
 }
 
-// Lease Functionality
-func createKeepAliveLease(c *clientv3.Client, ctx context.Context) (clientv3.LeaseID, <-chan *clientv3.LeaseKeepAliveResponse, error) {
-	lease := clientv3.NewLease(c)
-
-	id, err := acquireLeaseID(lease, ctx, defaultTimeout)
-
-	keepAlive, err := lease.KeepAlive(ctx, id)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	return id, keepAlive, nil
-}
-
-func acquireLeaseID(lease clientv3.Lease, ctx context.Context, timeout int64) (clientv3.LeaseID, error) {
-	res, err := lease.Grant(ctx, timeout)
-	if err != nil {
-		return 0, err
-	}
-	return res.ID, nil
-}
-
-func revokeLease(client *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID) error {
-	_, err := client.Revoke(ctx, leaseID)
-	return err
-}
-
 // kvPutLease writes a key-val pair with a lease given that the key is not already in use.
 // If the key exists the Txn fails, if it does not exist they key-val is Put.
 func kvPutLease(kvc clientv3.KV, ctx context.Context, leaseID clientv3.LeaseID, key, val string) (*clientv3.TxnResponse, error) {
