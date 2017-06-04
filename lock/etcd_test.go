@@ -57,13 +57,20 @@ func init() {
 	time.Sleep(1 * time.Second)
 }
 
+// for testing only; the lease struct is effectively discarded
+func acquireLeaseID(lease clientv3.Lease, ctx context.Context, timeout int64) (clientv3.LeaseID, error) {
+	res, err := lease.Grant(ctx, timeout)
+	if err != nil {
+		return 0, err
+	}
+	return res.ID, nil
+}
+
 func TestEtcd(t *testing.T) {
 	t.Run("etcd tests", func(t *testing.T) {
 		t.Run("deleteKeys", deleteKey)
 		t.Run("txnStatic", txnStaticKey)
 	})
-	//client.Close()
-	//e.Close()
 }
 
 func deleteKey(t *testing.T) {
