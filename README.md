@@ -48,3 +48,14 @@ members, err := membership.Members(etcdclient, IDs)
 ...
 ```
 
+## Testing
+
+Since etcd is critical to the membership, tests are all effectively integration tests.
+
+Recomended strategy is to run `etcd` in standalone along with the tests.Downloading [etcd](https://github.com/coreos/etcd/releases/tag/v3.1.7) and then run with eg:`./etcd-v3.1.7-linux-amd64/etcd`
+
+
+Embeded `etcd` can be configured to start and run with the tests by setting `ETCDEMBED=1` in the test environment. This make starting tests take a while though.
+
+All tests attempt to clean up and revoke all keys after finishing as to not polute etcd between runs.
+
