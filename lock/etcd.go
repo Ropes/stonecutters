@@ -17,9 +17,11 @@ var (
 	defaultTimeout      = int64(60)
 )
 
+// Member is a struct to encapuslate the etcd data
+// pairing to data Key[Identifier]: Value:[Owner]
 type Member struct {
 	Key   string // Identifier granted
-	Value string // Hosname
+	Value string // Owner/Hostname
 }
 
 // Join iterates over the passed 'ids' and attempts to claim one in
@@ -27,7 +29,7 @@ type Member struct {
 // If the list of ids are all claimed, returns GetIdFailure error with the
 // expectation the caller will handle managing the id list retrys.
 func Join(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID,
-	name string, ids []string) (string, error) {
+	name string, ids []string) (*Member, error) {
 	for _, id := range ids {
 		txn, err := kvPutLease(c, ctx, leaseID, id, name)
 		if err != nil {
@@ -36,13 +38,13 @@ func Join(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID,
 		} else if txn.Succeeded {
 			v := verifyKvPair(c, id, name)
 			if v {
-				return id, nil
+				return &Member{Key: id, Value: name}, nil
 			} else {
-				return "", VerificationError
+				return nil, VerificationError
 			}
 		}
 	}
-	return "", GetIdFailure
+	return nil, GetIdFailure
 }
 
 func Members(c *clientv3.Client, ids []string) ([]Member, error) {

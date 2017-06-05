@@ -258,14 +258,14 @@ func TestJoinEarly(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		val, err := Join(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
+		mem, err := Join(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
 		if err != nil {
 			t.Errorf("Join err: %v", err)
 		}
-		if val == "" {
-			t.Errorf("id returned is empty")
+		if mem == nil {
+			t.Errorf("mem returned is empty")
 		} else {
-			t.Logf("assigned: %s", val)
+			t.Logf("assigned: %s", mem.Value)
 		}
 	}
 }
@@ -282,7 +282,7 @@ func TestJoinFailure(t *testing.T) {
 	}
 
 	for i := 0; i < 4; i++ {
-		val, err := Join(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
+		mem, err := Join(client, ctx, leaseID.ID, fmt.Sprintf("hihi-%d", i), ids)
 		if err != nil && i < 3 {
 			t.Errorf("Join err: %v", err)
 		}
@@ -290,10 +290,10 @@ func TestJoinFailure(t *testing.T) {
 			t.Logf("Join err: %v", err)
 			continue
 		}
-		if val == "" {
-			t.Errorf("id returned is empty")
+		if mem == nil {
+			t.Errorf("member returned is empty")
 		} else {
-			t.Logf("assigned: %s", val)
+			t.Logf("assigned: %s", mem.Value)
 		}
 	}
 }
@@ -304,38 +304,40 @@ func TestJoinFailure2(t *testing.T) {
 	defer cancel()
 
 	for i := 0; i < 3; i++ {
-		leaseID, err := client.Grant(ctx, int64(30))
+		lease, err := client.Grant(ctx, int64(30))
 		if err != nil {
 			t.Errorf("error creating lease: %v", err)
 		}
+		defer client.Revoke(ctx, lease.ID)
 
-		val, err := Join(client, ctx, leaseID.ID, "hihi", ids)
+		mem, err := Join(client, ctx, lease.ID, "hihi-cat", ids)
 		if err != nil {
 			t.Errorf("Join err: %v", err)
 		}
-		if val == "" {
+		if mem == nil {
 			t.Errorf("id returned is empty")
 		} else {
-			t.Logf("assigned: %s", val)
+			t.Logf("assigned: %s", mem.Value)
 		}
 	}
 
 	// These Join requests should fail
 	for i := 0; i < 3; i++ {
-		leaseID, err := client.Grant(ctx, int64(30))
+		lease, err := client.Grant(ctx, int64(30))
 		if err != nil {
 			t.Errorf("error creating lease: %v", err)
 		}
+		defer client.Revoke(ctx, lease.ID)
 
-		val, err := Join(client, ctx, leaseID.ID, "hihi", ids)
+		mem, err := Join(client, ctx, lease.ID, "hihi", ids)
 		if err != nil {
 			t.Logf("Join expected err: %v", err)
 		}
-		if val != "" {
-			t.Errorf("val[%s] should not be granted an id!", val)
+		if mem != nil {
+			t.Errorf("Member[%v] should not be granted an id!", *mem)
 		}
 		if err != GetIdFailure {
-			t.Errorf("err[%v] should be GetIdFailure")
+			t.Errorf("err[%v] should be GetIdFailure", err)
 		}
 	}
 }
@@ -346,19 +348,20 @@ func TestSetFailuresAndList(t *testing.T) {
 	defer cancel()
 
 	for i := 0; i < 2; i++ {
-		leaseID, err := client.Grant(ctx, int64(30))
+		lease, err := client.Grant(ctx, int64(30))
 		if err != nil {
 			t.Errorf("error creating lease: %v", err)
 		}
+		defer client.Revoke(ctx, lease.ID)
 
-		val, err := Join(client, ctx, leaseID.ID, "hihi", ids)
+		mem, err := Join(client, ctx, lease.ID, "hihi", ids)
 		if err != nil {
 			t.Errorf("Join err: %v", err)
 		}
-		if val == "" {
+		if mem == nil {
 			t.Errorf("id returned is empty")
 		} else {
-			t.Logf("assigned: %s", val)
+			t.Logf("assigned: %s", mem.Value)
 		}
 	}
 
