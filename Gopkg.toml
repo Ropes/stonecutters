@@ -65,47 +65,15 @@
 # source = "https://github.com/myfork/package.git"
 
 
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/cockroachdb/cmux"
-
+## Manually curated list to describe minimal dependency versions
 [[constraint]]
   name = "github.com/coreos/etcd"
   version = "3.1.7"
 
 [[constraint]]
-  name = "github.com/coreos/go-semver"
-  version = "0.2.0"
+  name = "golang.org/x/text"
+  version = "ccbd3f7"
 
 [[constraint]]
-  name = "github.com/coreos/pkg"
-  version = "3.0.0"
-
-[[constraint]]
-  name = "github.com/ghodss/yaml"
-  version = "1.0.0"
-
-[[constraint]]
-  name = "github.com/grpc-ecosystem/go-grpc-prometheus"
-  version = "1.1.0"
-
-[[constraint]]
-  name = "github.com/grpc-ecosystem/grpc-gateway"
-  version = "1.2.2"
-
-[[constraint]]
-  name = "github.com/jonboulle/clockwork"
-  version = "0.1.0"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/petar/GoLLRB"
-
-[[constraint]]
-  name = "github.com/prometheus/client_golang"
-  version = "0.8.0"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/xiang90/probing"
+  name = "github.com/Sirupsen/logrus"
+  version = "cdd90c38c6e3718c731b555b9c3ed1becebec3ba"
