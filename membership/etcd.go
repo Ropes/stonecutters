@@ -1,4 +1,4 @@
-package lock
+package membership
 
 import (
 	"context"
@@ -47,6 +47,7 @@ func Join(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID,
 	return nil, GetIdFailure
 }
 
+// Members returns a list of all Identifiers assigned to an owner.
 func Members(c *clientv3.Client, ids []string) ([]Member, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

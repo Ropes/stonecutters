@@ -11,7 +11,7 @@ For distributed systems; assigning UIDs to running processes is a common way to 
 
 Distributed processes which need to share names but for identification and maintain uniqueness. This works but having a shared static set of names which are claimed using etcd(v3) as the distributed lock. Each process iterates over the ordered list, and claim the first name which isn't regestered/claimed in etcd.
 
-Provided static names are the top 100 highest mountains in North America, ordered by decending peak elevation. However any list of identifiers can be passed into lock.Join(...)  
+Provided static names are the top 100 highest mountains in North America, ordered by decending peak elevation. However any list of identifiers can be passed into membership.Join(...)  
 
 eg owners/hosts named:
 
@@ -22,7 +22,7 @@ foo-3le9 -> MtLogan
 foo-wedc -> MtRainier
 ```
 
-### etcd Transaction to lock an Identifier 
+### etcd membership Transaction to assign an Identifier 
 1. if key does **not** exist 
 2. PUT the key:value{Identifier: Owner} pair using a lease
   * If key is used, iterate to next identifier and retry claim transaction
@@ -40,11 +40,11 @@ lease, err :=  etcdclient.Grant(ctx, int64(5))
 ...
 
 // Join the stonecutters IDs list
-member, err := lock.Join(etcdclient, ctx, leaseID.ID, "homer", IDs)
+member, err := membership.Join(etcdclient, ctx, leaseID.ID, "homer", IDs)
 ...
 
 // List all members
-members, err := lock.Members(etcdclient, IDs)
+members, err := membership.Members(etcdclient, IDs)
 ...
 ```
 
