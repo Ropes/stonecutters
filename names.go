@@ -1,6 +1,8 @@
-package static
+package stonecutters
 
 import (
+	"fmt"
+
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
@@ -131,4 +133,14 @@ func NormalizedNaMountains() []string {
 		}
 	}
 	return nm
+}
+
+// PrefixedNumerics returns a list of ids with a simple name prefix
+// followed by an integer separated by a dash. Naming starts at '1' not '0'.
+func PrefixedNumerics(prefix string, max int) []string {
+	ids := make([]string, 0)
+	for i := 1; i <= max; i++ {
+		ids = append(ids, fmt.Sprintf("%s%d", prefix, i))
+	}
+	return ids
 }

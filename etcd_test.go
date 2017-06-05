@@ -1,4 +1,4 @@
-package membership
+package stonecutters
 
 import (
 	"context"

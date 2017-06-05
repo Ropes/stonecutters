@@ -1,4 +1,4 @@
-package static
+package stonecutters
 
 import "testing"
 
@@ -26,4 +26,20 @@ func TestNaNormalized(t *testing.T) {
 	if len(normed) != len(NAMountains) {
 		t.Errorf("normalized NA Mountain length do not match: %d:%d", len(normed), len(NAMountains))
 	}
+}
+
+func TestNumericGen(t *testing.T) {
+	cnt := 10
+	pre := "hihi"
+	namednums := PrefixedNumerics(pre, 10)
+	if len(namednums) != cnt {
+		t.Errorf("returned names != expected count: %d", len(namednums))
+	}
+	if namednums[0] != "hihi-1" {
+		t.Errorf("first name is an unexpected value: %q", namednums[0])
+	}
+	if namednums[cnt-1] != "hihi-10" {
+		t.Errorf("first name is an unexpected value: %q", namednums[0])
+	}
+
 }

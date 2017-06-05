@@ -1,4 +1,4 @@
-package membership
+package stonecutters
 
 import (
 	"context"
@@ -9,12 +9,10 @@ import (
 )
 
 var (
-	TxnError            = errors.New("lock: error running put-lease txn")
-	PutSucceededFailure = errors.New("lock: key already registered")
-	GetIdFailure        = errors.New("lock: failed to get identifier from list")
-	VerificationError   = errors.New("lock: k-v values do not match txn request") // very unlikely but strange error
-	LeaseFailure        = errors.New("lock: error creating lease keep alive for key")
 	defaultTimeout      = int64(60)
+	GetIdFailure        = errors.New("lock: failed to get identifier from list")
+	PutSucceededFailure = errors.New("lock: key already registered")
+	VerificationError   = errors.New("lock: k-v values do not match txn request") // very unlikely but strange error
 )
 
 // Member is a struct to encapuslate the etcd data
@@ -48,16 +46,16 @@ func Join(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID,
 }
 
 // Members returns a list of all Identifiers assigned to an owner.
-func Members(c *clientv3.Client, ids []string) ([]Member, error) {
+func Members(c *clientv3.Client, ids []string) ([]*Member, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	members := make([]Member, 0)
+	members := make([]*Member, 0)
 
 	for _, id := range ids {
 		got, err := c.Get(ctx, id)
 		if err == nil {
 			if len(got.Kvs) > 0 {
-				m := Member{Key: id, Value: string(got.Kvs[0].Value)}
+				m := &Member{Key: id, Value: string(got.Kvs[0].Value)}
 				members = append(members, m)
 			}
 		} else {

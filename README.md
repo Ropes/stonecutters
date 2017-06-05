@@ -1,6 +1,8 @@
 [Stonecutters](https://youtu.be/HmEtR17A6ck?t=2m55s)
 ------------
 
+**This package is still in active development; APIs may change so lock to a semantic version**
+
 ![](https://vignette1.wikia.nocookie.net/simpsons/images/1/16/Hammer_symbol.png/revision/latest?cb=20101006090032)
 
 This package looks deep within a goroutine's soul and assigns it a name based on the order in which it joined.
@@ -11,7 +13,7 @@ For distributed systems; assigning UIDs to running processes is a common way to 
 
 Distributed processes which need to share names but for identification and maintain uniqueness. This works but having a shared static set of names which are claimed using etcd(v3) as the distributed lock. Each process iterates over the ordered list, and claim the first name which isn't regestered/claimed in etcd.
 
-Provided static names are the top 100 highest mountains in North America, ordered by decending peak elevation. However any list of identifiers can be passed into membership.Join(...)  
+Provided static names are the top 100 highest mountains in North America, ordered by decending peak elevation. However any list of identifiers can be passed into stonecutters.Join(...)  
 
 eg owners/hosts named:
 
@@ -22,7 +24,7 @@ foo-3le9 -> MtLogan
 foo-wedc -> MtRainier
 ```
 
-### etcd membership Transaction to assign an Identifier 
+### etcd stonecutters Transaction to assign an Identifier 
 1. if key does **not** exist 
 2. PUT the key:value{Identifier: Owner} pair using a lease
   * If key is used, iterate to next identifier and retry claim transaction
@@ -40,17 +42,17 @@ lease, err :=  etcdclient.Grant(ctx, int64(5))
 ...
 
 // Join the stonecutters IDs list
-member, err := membership.Join(etcdclient, ctx, leaseID.ID, "homer", IDs)
+member, err := stonecutters.Join(etcdclient, ctx, leaseID.ID, "homer", IDs)
 ...
 
 // List all members
-members, err := membership.Members(etcdclient, IDs)
+members, err := stonecutters.Members(etcdclient, IDs)
 ...
 ```
 
 ## Testing
 
-Since etcd is critical to the membership, tests are all effectively integration tests.
+Since etcd is critical to the stonecutters, tests are all effectively integration tests.
 
 Recomended strategy is to run `etcd` in standalone along with the tests.Downloading [etcd](https://github.com/coreos/etcd/releases/tag/v3.1.7) and then run with eg:`./etcd-v3.1.7-linux-amd64/etcd`
 

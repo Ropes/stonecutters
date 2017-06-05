@@ -9,8 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/etcd/clientv3"
-	"github.com/ropes/stonecutters/lock"
-	"github.com/ropes/stonecutters/static"
+	"github.com/ropes/stonecutters"
 )
 
 func main() {
@@ -44,8 +43,10 @@ func main() {
 		log.Fatal(kaerr)
 	}
 
+	IDs := stonecutters.PrefixedNumerics("/metrics/testapp", 100)
+
 	// Request an ID from stonecutters Join
-	ID, err := lock.Join(client, ctx, lease.ID, *name, static.NAMountains)
+	ID, err := stonecutters.Join(client, ctx, lease.ID, *name, IDs)
 	if err != nil {
 		log.Fatalf("error joining stonecutters: %v", err)
 		os.Exit(1)
@@ -61,7 +62,7 @@ func main() {
 			os.Exit(0)
 		default:
 			log.WithFields(log.Fields{"name": *name, "ID": ID}).Info("Member")
-			members, err := lock.Members(client, static.NAMountains)
+			members, err := stonecutters.Members(client, IDs)
 			if err != nil {
 				log.Fatalf("error listing members: %v", err)
 				os.Exit(1)
