@@ -60,7 +60,7 @@ func main() {
 			cancel()
 			os.Exit(0)
 		default:
-			log.WithFields(log.Fields{"name": name, "ID": ID}).Info("Member")
+			log.WithFields(log.Fields{"name": *name, "ID": ID}).Info("Member")
 			members, err := lock.Members(client, static.NAMountains)
 			if err != nil {
 				log.Fatalf("error listing members: %v", err)
