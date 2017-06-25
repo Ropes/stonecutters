@@ -29,7 +29,8 @@ type Member struct {
 func Join(c *clientv3.Client, ctx context.Context, leaseID clientv3.LeaseID,
 	name string, ids []string) (*Member, error) {
 	for _, id := range ids {
-		txn, err := kvPutLease(c, ctx, leaseID, id, name)
+		m := Member{Key: id, Value: name}
+		txn, err := kvPutLease(c, ctx, leaseID, m)
 		if err != nil {
 			// skip to next id
 			continue
@@ -66,12 +67,12 @@ func Members(c *clientv3.Client, ids []string) ([]*Member, error) {
 	return members, nil
 }
 
-// kvPutLease writes a key-val pair with a lease given that the key is not already in use.
+// kvPutLease writes a Member[key,val] pair with a lease given that the key is not already in use.
 // If the key exists the Txn fails, if it does not exist they key-val is Put.
-func kvPutLease(kvc clientv3.KV, ctx context.Context, leaseID clientv3.LeaseID, key, val string) (*clientv3.TxnResponse, error) {
+func kvPutLease(kvc clientv3.KV, ctx context.Context, leaseID clientv3.LeaseID, m Member) (*clientv3.TxnResponse, error) {
 	resp, err := kvc.Txn(ctx).
-		If(clientv3.Compare(clientv3.Version(key), "=", 0)).
-		Then(clientv3.OpPut(key, val, clientv3.WithLease(leaseID))).
+		If(clientv3.Compare(clientv3.Version(m.Key), "=", 0)).
+		Then(clientv3.OpPut(m.Key, m.Value, clientv3.WithLease(leaseID))).
 		Commit()
 	if err != nil {
 		return nil, err

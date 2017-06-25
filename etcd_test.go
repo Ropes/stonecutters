@@ -109,7 +109,8 @@ func txnStaticKey(t *testing.T) {
 	if err != nil {
 		t.Errorf("error acquiring lease: %v", err)
 	}
-	resp, err := kvPutLease(kvc, ctx, lease, key, val)
+	m := Member{Key: key, Value: val}
+	resp, err := kvPutLease(kvc, ctx, lease, m)
 	if err != nil || resp == nil {
 		t.Fatalf("error executing txn: %v", err)
 	}
@@ -183,8 +184,9 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 		t.Errorf("error acquiring lease: %v", err)
 	}
 
-	K, V := "Mazama", "sepor"
-	tr, err := kvPutLease(client, ctx, lease, K, V)
+	//K, V := "Mazama", "sepor"
+	M := Member{Key: "Mazama", Value: "sepor"}
+	tr, err := kvPutLease(client, ctx, lease, M)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
@@ -196,7 +198,7 @@ func TestAcquireLeaseAndKey(t *testing.T) {
 		}
 	}()
 	t.Logf("%#v", tr)
-	valid := verifyKvPair(client, K, V)
+	valid := verifyKvPair(client, M.Key, M.Value)
 	if !valid {
 		t.Errorf("write txn not valid!")
 	}
@@ -213,20 +215,21 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 		t.Errorf("error acquiring lease: %v", err)
 	}
 
-	K, V := "Mellow", "pdx"
+	//K, V := "Mellow", "pdx"
+	M := Member{Key: "Mellow", Value: "pdx"}
 
-	tr, err := kvPutLease(client, ctx, lease, K, V)
+	tr, err := kvPutLease(client, ctx, lease, M)
 	if err != nil {
 		t.Fatalf("txn error: %v", err)
 	}
 	if tr == nil {
 		t.Fatalf("txnResp is nil")
 	}
-	got, err := client.Get(ctx, K)
+	got, err := client.Get(ctx, M.Key)
 	if err != nil {
 		t.Error(err)
 	}
-	if string(got.Kvs[0].Value) != V {
+	if string(got.Kvs[0].Value) != M.Value {
 		t.Errorf("%s was overwritten to: %s", key, string(got.Kvs[0].Value))
 	}
 
@@ -237,12 +240,12 @@ func TestAcquireKeyLeaseAndRevoke(t *testing.T) {
 	t.Logf("revoke response: %#v", rresp)
 	time.Sleep(6500 * time.Millisecond)
 
-	got, err = client.Get(ctx, K)
+	got, err = client.Get(ctx, M.Key)
 	if err != nil {
 		t.Error(err)
 	}
 	if len(got.Kvs) > 0 {
-		t.Errorf("no key should remain %s: %s", K, string(got.Kvs[0].Value))
+		t.Errorf("no key should remain %s: %s", M.Key, string(got.Kvs[0].Value))
 	}
 }
 
