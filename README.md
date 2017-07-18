@@ -61,3 +61,22 @@ Embeded `etcd` can be configured to start and run with the tests by setting `ETC
 
 All tests attempt to clean up and revoke all keys after finishing as to not polute etcd between runs.
 
+
+## Unvendored Dependendies
+
+List created with `dep`, but not Gopkg.toml not included to avoid unresolvable dependency trees.
+
+```
+## Manually curated list to describe minimal dependency versions
+[[constraint]]
+  name = "github.com/coreos/etcd"
+  version = "3.1.7"
+
+[[constraint]]
+  name = "golang.org/x/text"
+  version = "ccbd3f7"
+
+[[constraint]]
+  name = "github.com/Sirupsen/logrus"
+  version = "cdd90c38c6e3718c731b555b9c3ed1becebec3ba"
+```
