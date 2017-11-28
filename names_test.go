@@ -35,10 +35,10 @@ func TestNumericGen(t *testing.T) {
 	if len(namednums) != cnt {
 		t.Errorf("returned names != expected count: %d", len(namednums))
 	}
-	if namednums[0] != "hihi-1" {
+	if namednums[0] != "hihi1" {
 		t.Errorf("first name is an unexpected value: %q", namednums[0])
 	}
-	if namednums[cnt-1] != "hihi-10" {
+	if namednums[cnt-1] != "hihi10" {
 		t.Errorf("first name is an unexpected value: %q", namednums[0])
 	}
 
