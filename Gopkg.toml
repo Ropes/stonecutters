@@ -21,12 +21,12 @@
 #  version = "2.4.0"
 
 
-required = ["github.com/ugorji/go"]
+required = ["github.com/ugorji/go/codec"]
 
 [[constraint]]
   name = "github.com/coreos/etcd"
   version = "3.2.10"
 
-[[constraint]]
+[[override]]
   name = "github.com/ugorji/go"
   revision = "ded73eae5db7e7a0ef6f55aace87a2873c5d2b74"
